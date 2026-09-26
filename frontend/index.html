@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Task & Project Manager</title>
+
+  <script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(135deg,#eef2ff,#e0f2fe,#f0fdf4);
+      color: #172033;
+    }
+
+    .header {
+      background: linear-gradient(135deg,#4f46e5,#7c3aed,#0284c7);
+      color: white;
+      padding: 28px 7%;
+      box-shadow: 0 8px 25px rgba(0,0,0,.12);
+    }
+
+    .header h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+    }
+
+    .header p {
+      margin: 0 0 16px;
+      opacity: .9;
+    }
+
+    .container {
+      max-width: 1150px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4,1fr);
+      gap: 18px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 8px 24px rgba(30,41,59,.09);
+      border-top: 5px solid #6366f1;
+    }
+
+    .card:nth-child(2) { border-color:#06b6d4; }
+    .card:nth-child(3) { border-color:#22c55e; }
+    .card:nth-child(4) { border-color:#f59e0b; }
+
+    .number {
+      font-size:30px;
+      font-weight:bold;
+      margin-top:8px;
+    }
+
+    .label {
+      color:#64748b;
+      font-size:14px;
+    }
+
+    .section {
+      background:white;
+      border-radius:18px;
+      padding:25px;
+      margin-top:24px;
+      box-shadow:0 8px 24px rgba(30,41,59,.08);
+    }
+
+    .section h2 {
+      margin-top:0;
+      color:#312e81;
+    }
+
+    .projects {
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:18px;
+    }
+
+    .project {
+      padding:20px;
+      border-radius:15px;
+      color:white;
+      background:linear-gradient(135deg,#6366f1,#8b5cf6);
+    }
+
+    .project:nth-child(2) {
+      background:linear-gradient(135deg,#0891b2,#06b6d4);
+    }
+
+    .project:nth-child(3) {
+      background:linear-gradient(135deg,#16a34a,#22c55e);
+    }
+
+    .project h3 {
+      margin-top:0;
+    }
+
+    .progress {
+      height:9px;
+      background:rgba(255,255,255,.3);
+      border-radius:20px;
+      overflow:hidden;
+    }
+
+    .progress span {
+      display:block;
+      height:100%;
+      background:white;
+      border-radius:20px;
+    }
+
+    button {
+      border:0;
+      padding:12px 18px;
+      border-radius:10px;
+      color:white;
+      background:linear-gradient(135deg,#4f46e5,#7c3aed);
+      font-weight:bold;
+      cursor:pointer;
+    }
+
+    button:disabled {
+      opacity:.6;
+      cursor:not-allowed;
+    }
+
+    #loginStatus {
+      margin-left:12px;
+      font-size:14px;
+    }
+
+    .footer {
+      text-align:center;
+      padding:30px;
+      color:#64748b;
+    }
+
+    @media(max-width:800px) {
+      .cards {
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .projects {
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(max-width:500px) {
+      .cards {
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header class="header">
+
+  <h1>📋 Task & Project Manager</h1>
+
+  <p>
+    Cloud-native project workspace • Azure Static Website
+  </p>
+
+  <button id="loginButton" disabled>
+    Sign in with Microsoft
+  </button>
+
+  <span id="loginStatus">
+    Loading authentication...
+  </span>
+
+</header>
+
+<main class="container">
+
+  <section class="cards">
+
+    <div class="card">
+      <div class="label">TOTAL PROJECTS</div>
+      <div class="number">3</div>
+    </div>
+
+    <div class="card">
+      <div class="label">TOTAL TASKS</div>
+      <div class="number">0</div>
+    </div>
+
+    <div class="card">
+      <div class="label">COMPLETED</div>
+      <div class="number">0</div>
+    </div>
+
+    <div class="card">
+      <div class="label">IN PROGRESS</div>
+      <div class="number">0</div>
+    </div>
+
+  </section>
+
+  <section class="section">
+
+    <h2>🚀 Projects</h2>
+
+    <div class="projects">
+
+      <div class="project">
+
+        <h3>Azure Migration</h3>
+
+        <p>
+          Move application workloads to Azure.
+        </p>
+
+        <div class="progress">
+          <span style="width:80%"></span>
+        </div>
+
+        <p>80% complete</p>
+
+      </div>
+
+      <div class="project">
+
+        <h3>Web Application</h3>
+
+        <p>
+          Build the Task & Project Manager.
+        </p>
+
+        <div class="progress">
+          <span style="width:60%"></span>
+        </div>
+
+        <p>60% complete</p>
+
+      </div>
+
+      <div class="project">
+
+        <h3>DevOps Pipeline</h3>
+
+        <p>
+          Automate build and deployment.
+        </p>
+
+        <div class="progress">
+          <span style="width:45%"></span>
+        </div>
+
+        <p>45% complete</p>
+
+      </div>
+
+    </div>
+
+  </section>
+
+  <section class="section">
+
+    <h2>➕ Create Task</h2>
+
+    <div style="display:grid; gap:14px; max-width:600px;">
+
+      <input
+        id="taskTitle"
+        type="text"
+        placeholder="Task title"
+        style="padding:12px; border:1px solid #cbd5e1; border-radius:10px;"
+      >
+
+      <textarea
+        id="taskDescription"
+        placeholder="Task description"
+        rows="4"
+        style="padding:12px; border:1px solid #cbd5e1; border-radius:10px; resize:vertical;"
+      ></textarea>
+
+      <select
+        id="taskStatus"
+        style="padding:12px; border:1px solid #cbd5e1; border-radius:10px;"
+      >
+        <option value="Pending">Pending</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Completed">Completed</option>
+      </select>
+
+      <button id="createTaskButton">
+        Create Task
+      </button>
+
+      <div id="taskMessage" style="font-size:14px;"></div>
+
+    </div>
+
+  </section>
+
+  <section class="section">
+
+    <h2>✅ Tasks from Backend API</h2>
+
+    <button id="loadTasksButton">
+      Load Tasks
+    </button>
+
+    <div id="tasksMessage" style="margin-top:14px;"></div>
+
+    <div id="tasksList" style="margin-top:20px;"></div>
+
+  </section>
+
+  <section class="section" style="text-align:center">
+
+    <h2>🎯 Azure Capstone Project</h2>
+
+    <p>
+      Frontend hosted using Azure Storage Static Website.
+    </p>
+
+  </section>
+
+</main>
+
+<footer class="footer">
+
+  Task & Project Manager • Azure Cloud-Native Capstone
+
+</footer>
+
+
+<script>
+
+/* =========================================================
+   MSAL CONFIGURATION
+   ========================================================= */
+
+const msalConfig = {
+
+  auth: {
+
+    clientId:
+      "805e5b2b-3fba-43ad-9d5d-bda2a4b71f5e",
+
+    authority:
+      "https://login.microsoftonline.com/785707d0-a503-4e58-8a6e-114f5db483b4",
+
+    redirectUri:
+      "https://capstonefe1790267848.z29.web.core.windows.net/",
+
+    postLogoutRedirectUri:
+      "https://capstonefe1790267848.z29.web.core.windows.net/",
+
+    navigateToLoginRequestUrl:
+      false
+
+  },
+
+  cache: {
+
+    cacheLocation:
+      "localStorage",
+
+    storeAuthStateInCookie:
+      false
+
+  }
+
+};
+
+
+/* =========================================================
+   BACKEND API PERMISSION
+   ========================================================= */
+
+const API_BASE_URL = "https://capstone-backend-1790273810.azurewebsites.net";
+
+const loginRequest = {
+  scopes: [
+    "openid",
+    "profile",
+    "api://9e3535bc-c789-4853-844e-899985a12461/access"
+  ]
+};
+
+async function getAccessToken() {
+  const account =
+    msalInstance.getActiveAccount() ||
+    msalInstance.getAllAccounts()[0];
+
+  if (!account) {
+    throw new Error("Please sign in first.");
+  }
+
+  const response = await msalInstance.acquireTokenSilent({
+    ...loginRequest,
+    account
+  });
+
+  return response.accessToken;
+}
+
+async function apiFetch(path, options = {}) {
+  const token = await getAccessToken();
+
+  const headers = new Headers(options.headers || {});
+  headers.set("Authorization", `Bearer ${token}`);
+  headers.set("Content-Type", "application/json");
+
+  return fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers
+  });
+}
+
+
+/* =========================================================
+   CREATE MSAL INSTANCE
+   ========================================================= */
+
+const msalInstance =
+  new msal.PublicClientApplication(
+    msalConfig
+  );
+
+
+let authReady = false;
+
+
+/* =========================================================
+   SHOW AUTHENTICATION ERROR
+   ========================================================= */
+
+function showAuthenticationError(error) {
+
+  console.error(
+    "FULL MSAL ERROR:",
+    error
+  );
+
+  const loginStatus =
+    document.getElementById(
+      "loginStatus"
+    );
+
+  const errorCode =
+    error &&
+    error.errorCode
+      ? error.errorCode
+      : "unknown_error";
+
+  const errorMessage =
+    error &&
+    error.message
+      ? error.message
+      : "No detailed error message was returned.";
+
+  loginStatus.textContent =
+    "Authentication error: " +
+    errorCode +
+    " | " +
+    errorMessage;
+
+}
+
+
+/* =========================================================
+   UPDATE LOGIN STATUS
+   ========================================================= */
+
+function updateLoginStatus() {
+
+  const accounts =
+    msalInstance.getAllAccounts();
+
+
+  if (accounts.length > 0) {
+
+    msalInstance.setActiveAccount(
+      accounts[0]
+    );
+
+
+    document.getElementById(
+      "loginStatus"
+    ).textContent =
+      "Signed in: " +
+      accounts[0].username;
+
+
+    document.getElementById(
+      "loginButton"
+    ).textContent =
+      "Sign out";
+
+
+  } else {
+
+    document.getElementById(
+      "loginStatus"
+    ).textContent =
+      "Not signed in";
+
+
+    document.getElementById(
+      "loginButton"
+    ).textContent =
+      "Sign in with Microsoft";
+
+  }
+
+}
+
+
+/* =========================================================
+   INITIALIZE AUTHENTICATION
+   ========================================================= */
+
+async function initializeAuth() {
+
+  const loginButton =
+    document.getElementById(
+      "loginButton"
+    );
+
+
+  try {
+
+    console.log(
+      "Starting MSAL initialization..."
+    );
+
+
+    const response =
+      await msalInstance.handleRedirectPromise();
+
+
+    console.log(
+      "MSAL redirect response:",
+      response
+    );
+
+
+    if (
+      response &&
+      response.account
+    ) {
+
+      msalInstance.setActiveAccount(
+        response.account
+      );
+
+    }
+
+
+    updateLoginStatus();
+
+
+    authReady = true;
+
+    loginButton.disabled = false;
+
+
+    console.log(
+      "MSAL initialization completed."
+    );
+
+
+  } catch (error) {
+
+    showAuthenticationError(
+      error
+    );
+
+
+    loginButton.disabled = false;
+
+    authReady = true;
+
+  }
+
+}
+
+
+/* =========================================================
+   LOGIN
+   ========================================================= */
+
+async function login() {
+
+  if (!authReady) {
+
+    console.log(
+      "MSAL is still initializing."
+    );
+
+    return;
+
+  }
+
+
+  try {
+
+    console.log(
+      "Starting Microsoft login..."
+    );
+
+
+    await msalInstance.loginRedirect(
+      loginRequest
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "LOGIN ERROR:",
+      error
+    );
+
+
+    showAuthenticationError(
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   LOGOUT
+   ========================================================= */
+
+async function logout() {
+
+  try {
+
+    await msalInstance.logoutRedirect();
+
+  } catch (error) {
+
+    console.error(
+      "LOGOUT ERROR:",
+      error
+    );
+
+
+    document.getElementById(
+      "loginStatus"
+    ).textContent =
+      "Logout error: " +
+      (
+        error.message ||
+        error.errorCode ||
+        "Unknown error"
+      );
+
+  }
+
+}
+
+
+/* =========================================================
+   LOGIN BUTTON
+   ========================================================= */
+
+document
+  .getElementById("loginButton")
+  .addEventListener(
+    "click",
+    function() {
+
+      const accounts =
+        msalInstance.getAllAccounts();
+
+
+      if (
+        accounts.length > 0
+      ) {
+
+        logout();
+
+      } else {
+
+        login();
+
+      }
+
+    }
+  );
+
+
+/* =========================================================
+   START AUTHENTICATION
+   ========================================================= */
+
+initializeAuth();
+
+
+/* =========================================================
+   CREATE TASK
+   ========================================================= */
+
+document.getElementById("createTaskButton").addEventListener("click", async () => {
+
+  const title = document.getElementById("taskTitle").value.trim();
+  const description = document.getElementById("taskDescription").value.trim();
+  const status = document.getElementById("taskStatus").value;
+  const message = document.getElementById("taskMessage");
+
+  if (!title) {
+    message.textContent = "Please enter a task title.";
+    return;
+  }
+
+  message.textContent = "Creating task...";
+
+  try {
+
+    const response = await apiFetch("/api/tasks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title: title,
+        description: description,
+        status: status
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.error || "Failed to create task");
+    }
+
+    message.textContent = "✅ Task created successfully!";
+
+    document.getElementById("taskTitle").value = "";
+    document.getElementById("taskDescription").value = "";
+    document.getElementById("taskStatus").value = "Pending";
+
+    console.log("Created task:", result);
+
+  } catch (error) {
+
+    console.error("Create task error:", error);
+    message.textContent = "❌ " + error.message;
+
+  }
+
+});
+
+
+/* =========================================================
+   READ TASKS
+   ========================================================= */
+
+document.getElementById("loadTasksButton").addEventListener("click", async () => {
+
+  const message = document.getElementById("tasksMessage");
+  const list = document.getElementById("tasksList");
+
+  message.textContent = "Loading tasks...";
+  list.innerHTML = "";
+
+  try {
+
+    const response = await apiFetch("/api/tasks", {
+      method: "GET"
+    });
+
+    const tasks = await response.json();
+
+    if (!response.ok) {
+      throw new Error(tasks.error || "Failed to load tasks");
+    }
+
+    if (tasks.length === 0) {
+      message.textContent = "No tasks found.";
+      return;
+    }
+
+    message.textContent = `✅ ${tasks.length} task(s) loaded from backend.`;
+
+    tasks.forEach(task => {
+
+      const card = document.createElement("div");
+
+      card.style.cssText =
+        "padding:16px; margin-bottom:12px; border:1px solid #dbe3f0; border-radius:12px; background:#f8fafc;";
+
+      card.innerHTML = `
+        <h3 style="margin:0 0 8px 0;">${task.title}</h3>
+        <p style="margin:0 0 8px 0;">${task.description || ""}</p>
+        <strong>Status: ${task.status}</strong>
+        <div style="margin-top:12px;">
+          <button class="editTaskButton"
+                  style="padding:8px 14px; margin-right:8px; border:0; border-radius:8px; background:#4f46e5; color:white; cursor:pointer;">
+            ✏️ Edit
+          </button>
+          <button class="deleteTaskButton"
+                  style="padding:8px 14px; border:0; border-radius:8px; background:#dc2626; color:white; cursor:pointer;">
+            🗑️ Delete
+          </button>
+        </div>
+      `;
+
+      card.querySelector(".editTaskButton").addEventListener("click", async () => {
+
+        const title = prompt("Enter new task title:", task.title);
+        if (title === null) return;
+
+        const description = prompt(
+          "Enter new description:",
+          task.description || ""
+        );
+        if (description === null) return;
+
+        const status = prompt(
+          "Enter status (Pending / In Progress / Completed):",
+          task.status || "Pending"
+        );
+        if (status === null) return;
+
+        try {
+
+          const response = await apiFetch(
+            `/api/tasks/${encodeURIComponent(task.id)}`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                title: title,
+                description: description,
+                status: status
+              })
+            }
+          );
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "Failed to update task");
+          }
+
+          message.textContent = "✅ Task updated successfully!";
+
+          document.getElementById("loadTasksButton").click();
+
+        } catch (error) {
+
+          console.error("Update task error:", error);
+          message.textContent = "❌ " + error.message;
+
+        }
+
+      });
+
+      card.querySelector(".deleteTaskButton").addEventListener("click", async () => {
+        if (!confirm(`Delete task "${task.title}"?`)) return;
+
+        try {
+          const response = await apiFetch(
+            `/api/tasks/${encodeURIComponent(task.id)}`,
+            {
+              method: "DELETE"
+            }
+          );
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "Failed to delete task");
+          }
+
+          message.textContent = "✅ Task deleted successfully!";
+          document.getElementById("loadTasksButton").click();
+
+        } catch (error) {
+          console.error("Delete task error:", error);
+          message.textContent = "❌ " + error.message;
+        }
+      });
+
+      list.appendChild(card);
+
+    });
+
+  } catch (error) {
+
+    console.error("Load tasks error:", error);
+    message.textContent = "❌ " + error.message;
+
+  }
+
+});
+
+</script>
+
+</body>
+</html>
