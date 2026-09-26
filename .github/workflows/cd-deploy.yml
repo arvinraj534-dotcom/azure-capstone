@@ -12,11 +12,12 @@ permissions:
 
 env:
   RESOURCE_GROUP: capstoneprojectresourcegroup
-  LOCATION: centralindia
+  STORAGE_ACCOUNT: capstonefe1790267848
+  WEB_APP_NAME: capstone-backend-1790273810
 
 jobs:
-  deploy-dev:
-    name: Deploy Dev
+  prepare-release:
+    name: Prepare Release
     runs-on: ubuntu-latest
 
     steps:
@@ -44,19 +45,27 @@ jobs:
         run: |
           az bicep build --file infra/main.bicep
 
-      - name: Infrastructure What-If
+      - name: Verify backend files
         run: |
-          az deployment group what-if \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
-            --parameters infra/main.bicepparam
+          test -f backend/app.py
+          test -f backend/requirements.txt
 
-  deploy-prod:
-    name: Production Deployment
-    needs: deploy-dev
+      - name: Verify frontend files
+        run: |
+          test -f frontend/index.html
+          test -f frontend/404.html
+
+      - name: Azure logout
+        if: always()
+        run: az logout
+
+  deploy-production:
+    name: Deploy Production Application
+    needs: prepare-release
     runs-on: ubuntu-latest
+
     environment:
-      name:  production
+      name: production
 
     steps:
       - name: Checkout repository
@@ -69,9 +78,33 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy Azure Infrastructure
+      - name: Deploy backend to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.WEB_APP_NAME }}
+          package: ./backend
+
+      - name: Deploy frontend to Azure Storage Static Website
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az storage blob upload-batch \
+              --account-name "$STORAGE_ACCOUNT" \
+              --destination '$web' \
+              --source ./frontend \
+              --auth-mode login \
+              --overwrite
+
+      - name: Verify backend health
         run: |
-          az deployment group create \
-            --resource-group "$RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
-            --parameters infra/main.bicepparam
+          curl --fail --silent --show-error \
+            "https://${WEB_APP_NAME}.azurewebsites.net/api/health"
+
+      - name: Verify frontend
+        run: |
+          curl --fail --silent --show-error \
+            "https://${STORAGE_ACCOUNT}.z29.web.core.windows.net/"
+
+      - name: Azure logout
+        if: always()
+        run: az logout
