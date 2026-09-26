@@ -23,6 +23,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Verify Azure Client ID
+        shell: bash
+        run: |
+          if [ "${{ secrets.AZURE_CLIENT_ID }}" = "c1c5b6da-492d-40d1-bf5e-1b25d42e85e5" ]; then
+            echo "AZURE_CLIENT_ID = MATCH"
+          else
+            echo "AZURE_CLIENT_ID = MISMATCH"
+            exit 1
+          fi
+
       - name: Azure login
         uses: azure/login@v2
         with:
