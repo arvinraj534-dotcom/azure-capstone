@@ -1,0 +1,612 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.47.16.16243",
+      "templateHash": "11456564654797582355"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "centralindia",
+      "metadata": {
+        "description": "Azure region"
+      }
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().name]",
+      "metadata": {
+        "description": "Existing resource group name"
+      }
+    },
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "capstonefe1790267848",
+      "metadata": {
+        "description": "Frontend storage account name"
+      }
+    },
+    "appServicePlanName": {
+      "type": "string",
+      "defaultValue": "capstone-backend-plan",
+      "metadata": {
+        "description": "Backend App Service Plan name"
+      }
+    },
+    "webAppName": {
+      "type": "string",
+      "defaultValue": "capstone-backend-1790273810",
+      "metadata": {
+        "description": "Backend Web App name"
+      }
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "defaultValue": "capstonecosmos1790272312",
+      "metadata": {
+        "description": "Cosmos DB account name"
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "capstone-vnet",
+      "metadata": {
+        "description": "Virtual Network name"
+      }
+    },
+    "applicationGatewayName": {
+      "type": "string",
+      "defaultValue": "capstone-appgw",
+      "metadata": {
+        "description": "Application Gateway name"
+      }
+    },
+    "wafPolicyName": {
+      "type": "string",
+      "defaultValue": "capstone-waf-policy",
+      "metadata": {
+        "description": "WAF policy name"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2024-11-01",
+      "name": "[parameters('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "kind": "linux",
+      "sku": {
+        "name": "B1",
+        "tier": "Basic",
+        "capacity": 1
+      },
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-10-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "AppSubnet",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24",
+              "delegations": [
+                {
+                  "name": "webAppDelegation",
+                  "properties": {
+                    "serviceName": "Microsoft.Web/serverFarms"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "DataSubnet",
+            "properties": {
+              "addressPrefix": "10.0.2.0/24",
+              "privateEndpointNetworkPolicies": "Disabled"
+            }
+          },
+          {
+            "name": "GatewaySubnet",
+            "properties": {
+              "addressPrefix": "10.0.3.0/24"
+            }
+          },
+          {
+            "name": "AppGatewaySubnet",
+            "properties": {
+              "addressPrefix": "10.0.4.0/24",
+              "serviceEndpoints": [
+                {
+                  "service": "Microsoft.Web"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[parameters('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+        "accessTier": "Hot",
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "capstone-appinsights",
+      "location": "[parameters('location')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "IngestionMode": "LogAnalytics",
+        "RetentionInDays": 90
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2024-11-15",
+      "name": "[parameters('cosmosAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session",
+          "maxIntervalInSeconds": 5,
+          "maxStalenessPrefix": 100
+        },
+        "enableAutomaticFailover": true,
+        "enableFreeTier": true,
+        "minimalTlsVersion": "Tls12",
+        "publicNetworkAccess": "Disabled",
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), 'capstone-db')]",
+      "properties": {
+        "resource": {
+          "id": "capstone-db"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}/{2}', parameters('cosmosAccountName'), 'capstone-db', 'tasks')]",
+      "properties": {
+        "resource": {
+          "id": "tasks",
+          "partitionKey": {
+            "paths": [
+              "/userId"
+            ],
+            "kind": "Hash"
+          },
+          "indexingPolicy": {
+            "indexingMode": "consistent",
+            "automatic": true,
+            "includedPaths": [
+              {
+                "path": "/*"
+              }
+            ],
+            "excludedPaths": [
+              {
+                "path": "/\"_etag\"/?"
+              }
+            ]
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', parameters('cosmosAccountName'), 'capstone-db')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2024-05-01",
+      "name": "capstone-cosmos-pe",
+      "location": "[parameters('location')]",
+      "properties": {
+        "subnet": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'DataSubnet')]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "capstone-cosmos-connection",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]",
+              "groupIds": [
+                "Sql"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "privatelink.documents.azure.com",
+      "location": "global"
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', 'privatelink.documents.azure.com', 'capstone-vnet-dns-link')]",
+      "location": "global",
+      "properties": {
+        "registrationEnabled": false,
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.documents.azure.com')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2024-05-01",
+      "name": "[format('{0}/{1}', 'capstone-cosmos-pe', 'capstone-cosmos-dns-zone-group')]",
+      "properties": {
+        "privateDnsZoneConfigs": [
+          {
+            "name": "cosmos",
+            "properties": {
+              "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.documents.azure.com')]"
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', 'privatelink.documents.azure.com')]",
+        "[resourceId('Microsoft.Network/privateEndpoints', 'capstone-cosmos-pe')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2024-11-01",
+      "name": "[parameters('webAppName')]",
+      "location": "[parameters('location')]",
+      "kind": "app,linux",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "httpsOnly": true,
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+        "siteConfig": {
+          "linuxFxVersion": "PYTHON|3.11",
+          "minTlsVersion": "1.2",
+          "ftpsState": "FtpsOnly",
+          "appCommandLine": "gunicorn --bind=0.0.0.0:8000 app:app",
+          "cors": {
+            "allowedOrigins": [
+              "https://capstonefe1790267848.z29.web.core.windows.net"
+            ],
+            "supportCredentials": false
+          },
+          "appSettings": [
+            {
+              "name": "TENANT_ID",
+              "value": "785707d0-a503-4e58-8a6e-114f5db483b4"
+            },
+            {
+              "name": "API_AUDIENCE",
+              "value": "api://9e3535bc-c789-4853-844e-899985a12461"
+            },
+            {
+              "name": "COSMOS_ENDPOINT",
+              "value": "[reference(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), '2024-11-15').documentEndpoint]"
+            },
+            {
+              "name": "COSMOS_DATABASE",
+              "value": "capstone-db"
+            },
+            {
+              "name": "COSMOS_CONTAINER",
+              "value": "tasks"
+            },
+            {
+              "name": "TOKEN_ISSUER",
+              "value": "https://sts.windows.net/785707d0-a503-4e58-8a6e-114f5db483b4/"
+            },
+            {
+              "name": "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "value": "true"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', 'capstone-appinsights'), '2020-02-02').ConnectionString]"
+            },
+            {
+              "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
+              "value": "~3"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Insights/components', 'capstone-appinsights')]",
+        "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]",
+        "[resourceId('Microsoft.Network/privateEndpoints/privateDnsZoneGroups', 'capstone-cosmos-pe', 'capstone-cosmos-dns-zone-group')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Web/sites/virtualNetworkConnections",
+      "apiVersion": "2024-11-01",
+      "name": "[format('{0}/{1}', parameters('webAppName'), 'capstone-vnet-connection')]",
+      "properties": {
+        "vnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AppSubnet')]",
+        "isSwift": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+      "apiVersion": "2024-11-15",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('webAppName'), 'cosmos-data-contributor'))]",
+      "properties": {
+        "roleDefinitionId": "[format('{0}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')))]",
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName')), '2024-11-01', 'full').identity.principalId]",
+        "scope": "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]",
+        "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies",
+      "apiVersion": "2024-07-01",
+      "name": "[parameters('wafPolicyName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "policySettings": {
+          "state": "Enabled",
+          "mode": "Detection",
+          "requestBodyCheck": false,
+          "fileUploadEnforcement": true,
+          "fileUploadLimitInMb": 100,
+          "maxRequestBodySizeInKb": 128,
+          "requestBodyEnforcement": true,
+          "requestBodyInspectLimitInKB": 128
+        },
+        "managedRules": {
+          "managedRuleSets": [
+            {
+              "ruleSetType": "Microsoft_DefaultRuleSet",
+              "ruleSetVersion": "2.1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2024-05-01",
+      "name": "capstone-appgw-pip",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "dnsSettings": {
+          "domainNameLabel": "capstone-appgw-1790273810"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "apiVersion": "2025-03-01",
+      "name": "[parameters('applicationGatewayName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "WAF_v2",
+          "tier": "WAF_v2",
+          "capacity": 1
+        },
+        "firewallPolicy": {
+          "id": "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', parameters('wafPolicyName'))]"
+        },
+        "gatewayIPConfigurations": [
+          {
+            "name": "appGatewayIpConfig",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AppGatewaySubnet')]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "appGatewayFrontendIP",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'capstone-appgw-pip')]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "appGatewayFrontendPort",
+            "properties": {
+              "port": 80
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "appGatewayBackendPool",
+            "properties": {
+              "backendAddresses": [
+                {
+                  "fqdn": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName')), '2024-11-01').defaultHostName]"
+                }
+              ]
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "capstone-backend-health",
+            "properties": {
+              "protocol": "Https",
+              "path": "/api/health",
+              "interval": 30,
+              "timeout": 30,
+              "unhealthyThreshold": 3,
+              "host": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName')), '2024-11-01').defaultHostName]",
+              "match": {
+                "statusCodes": [
+                  "200-399"
+                ]
+              }
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "appGatewayBackendHttpSettings",
+            "properties": {
+              "port": 443,
+              "protocol": "Https",
+              "requestTimeout": 30,
+              "pickHostNameFromBackendAddress": true,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/probes', parameters('applicationGatewayName'), 'capstone-backend-health')]"
+              }
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "appGatewayHttpListener",
+            "properties": {
+              "protocol": "Http",
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('applicationGatewayName'), 'appGatewayFrontendIP')]"
+              },
+              "frontendPort": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('applicationGatewayName'), 'appGatewayFrontendPort')]"
+              }
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "name": "rule1",
+            "properties": {
+              "ruleType": "Basic",
+              "priority": 100,
+              "httpListener": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', parameters('applicationGatewayName'), 'appGatewayHttpListener')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', parameters('applicationGatewayName'), 'appGatewayBackendPool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', parameters('applicationGatewayName'), 'appGatewayBackendHttpSettings')]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', 'capstone-appgw-pip')]",
+        "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', parameters('wafPolicyName'))]",
+        "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "deploymentResourceGroup": {
+      "type": "string",
+      "value": "[parameters('resourceGroupName')]"
+    },
+    "deploymentLocation": {
+      "type": "string",
+      "value": "[parameters('location')]"
+    },
+    "appServicePlan": {
+      "type": "string",
+      "value": "[parameters('appServicePlanName')]"
+    },
+    "storageAccount": {
+      "type": "string",
+      "value": "[parameters('storageAccountName')]"
+    },
+    "webApp": {
+      "type": "string",
+      "value": "[parameters('webAppName')]"
+    },
+    "cosmosAccount": {
+      "type": "string",
+      "value": "[parameters('cosmosAccountName')]"
+    },
+    "vnet": {
+      "type": "string",
+      "value": "[parameters('vnetName')]"
+    },
+    "applicationGateway": {
+      "type": "string",
+      "value": "[parameters('applicationGatewayName')]"
+    },
+    "wafPolicy": {
+      "type": "string",
+      "value": "[parameters('wafPolicyName')]"
+    }
+  }
+}
