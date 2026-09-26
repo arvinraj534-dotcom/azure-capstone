@@ -1,0 +1,110 @@
+name: CD Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RESOURCE_GROUP: capstoneprojectresourcegroup
+  STORAGE_ACCOUNT: capstonefe1790267848
+  WEB_APP_NAME: capstone-backend-1790273810
+
+jobs:
+  prepare-release:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Azure Client ID
+        shell: bash
+        run: |
+          if [ "${{ secrets.AZURE_CLIENT_ID }}" = "c1c5b6da-492d-40d1-bf5e-1b25d42e85e5" ]; then
+            echo "AZURE_CLIENT_ID = MATCH"
+          else
+            echo "AZURE_CLIENT_ID = MISMATCH"
+            exit 1
+          fi
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate Bicep
+        run: |
+          az bicep build --file infra/main.bicep
+
+      - name: Verify backend files
+        run: |
+          test -f backend/app.py
+          test -f backend/requirements.txt
+
+      - name: Verify frontend files
+        run: |
+          test -f frontend/index.html
+          test -f frontend/404.html
+
+      - name: Azure logout
+        if: always()
+        run: az logout
+
+  deploy-production:
+    name: Deploy Production Application
+    needs: prepare-release
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy backend to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.WEB_APP_NAME }}
+          package: ./backend
+
+      - name: Deploy frontend to Azure Storage Static Website
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az storage blob upload-batch \
+              --account-name "$STORAGE_ACCOUNT" \
+              --destination '$web' \
+              --source ./frontend \
+              --auth-mode login \
+              --overwrite
+
+      - name: Verify backend health
+        run: |
+          curl --fail --silent --show-error \
+            "https://${WEB_APP_NAME}.azurewebsites.net/api/health"
+
+      - name: Verify frontend
+        run: |
+          curl --fail --silent --show-error \
+            "https://${STORAGE_ACCOUNT}.z29.web.core.windows.net/"
+
+      - name: Azure logout
+        if: always()
+        run: az logout
