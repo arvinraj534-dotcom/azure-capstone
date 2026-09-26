@@ -53,6 +53,18 @@ output vnet string = vnetName
 output applicationGateway string = applicationGatewayName
 output wafPolicy string = wafPolicyName
 
+resource appNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'capstone-app-nsg'
+  location: location
+  properties: {}
+}
+
+resource dataNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: 'capstone-data-nsg'
+  location: location
+  properties: {}
+}
+
 resource vnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
   name: vnetName
   location: location
@@ -64,11 +76,17 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
       ]
     }
 
+    privateEndpointVNetPolicies: 'Disabled'
+
     subnets: [
       {
         name: 'AppSubnet'
         properties: {
           addressPrefix: '10.0.1.0/24'
+
+          networkSecurityGroup: {
+            id: appNsg.id
+          }
 
           delegations: [
             {
@@ -85,6 +103,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-10-01' = {
         name: 'DataSubnet'
         properties: {
           addressPrefix: '10.0.2.0/24'
+          networkSecurityGroup: {
+            id: dataNsg.id
+          }
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
@@ -350,7 +371,7 @@ resource webApp 'Microsoft.Web/sites@2024-11-01' = {
 
 resource webAppVnetConnection 'Microsoft.Web/sites/virtualNetworkConnections@2024-11-01' = {
   parent: webApp
-  name: 'capstone-vnet-connection'
+  name: 'AppSubnet'
 
   properties: {
     vnetResourceId: resourceId(
@@ -365,7 +386,7 @@ resource webAppVnetConnection 'Microsoft.Web/sites/virtualNetworkConnections@202
 
 resource cosmosRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
   parent: cosmosAccount
-  name: guid(cosmosAccount.id, webAppName, 'cosmos-data-contributor')
+  name: '3986b4f7-1593-44f6-a3d4-529fd505c315'
 
   properties: {
     roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
@@ -406,6 +427,7 @@ resource appGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
   location: location
   sku: {
     name: 'Standard'
+    tier: 'Regional'
   }
 
   properties: {
@@ -436,7 +458,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2025-03-01' = {
 
     gatewayIPConfigurations: [
       {
-        name: 'appGatewayIpConfig'
+        name: 'appGatewayFrontendIP'
         properties: {
           subnet: {
             id: resourceId(
@@ -492,6 +514,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2025-03-01' = {
           timeout: 30
           unhealthyThreshold: 3
           host: webApp.properties.defaultHostName
+          pickHostNameFromBackendHttpSettings: false
 
           match: {
             statusCodes: [
@@ -510,6 +533,13 @@ resource appGateway 'Microsoft.Network/applicationGateways@2025-03-01' = {
           protocol: 'Https'
           requestTimeout: 30
           pickHostNameFromBackendAddress: true
+          dedicatedBackendConnection: false
+          connectionDraining: {
+            enabled: false
+            drainTimeoutInSec: 1
+          }
+          validateCertChainAndExpiry: true
+          validateSNI: true
 
           probe: {
             id: resourceId(

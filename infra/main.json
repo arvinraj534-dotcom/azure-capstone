@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.47.16.16243",
-      "templateHash": "11456564654797582355"
+      "templateHash": "6617720557463552310"
     }
   },
   "parameters": {
@@ -90,6 +90,20 @@
       }
     },
     {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2024-05-01",
+      "name": "capstone-app-nsg",
+      "location": "[parameters('location')]",
+      "properties": {}
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2024-05-01",
+      "name": "capstone-data-nsg",
+      "location": "[parameters('location')]",
+      "properties": {}
+    },
+    {
       "type": "Microsoft.Network/virtualNetworks",
       "apiVersion": "2024-10-01",
       "name": "[parameters('vnetName')]",
@@ -100,11 +114,15 @@
             "10.0.0.0/16"
           ]
         },
+        "privateEndpointVNetPolicies": "Disabled",
         "subnets": [
           {
             "name": "AppSubnet",
             "properties": {
               "addressPrefix": "10.0.1.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'capstone-app-nsg')]"
+              },
               "delegations": [
                 {
                   "name": "webAppDelegation",
@@ -119,6 +137,9 @@
             "name": "DataSubnet",
             "properties": {
               "addressPrefix": "10.0.2.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'capstone-data-nsg')]"
+              },
               "privateEndpointNetworkPolicies": "Disabled"
             }
           },
@@ -140,7 +161,11 @@
             }
           }
         ]
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'capstone-app-nsg')]",
+        "[resourceId('Microsoft.Network/networkSecurityGroups', 'capstone-data-nsg')]"
+      ]
     },
     {
       "type": "Microsoft.Storage/storageAccounts",
@@ -381,7 +406,7 @@
     {
       "type": "Microsoft.Web/sites/virtualNetworkConnections",
       "apiVersion": "2024-11-01",
-      "name": "[format('{0}/{1}', parameters('webAppName'), 'capstone-vnet-connection')]",
+      "name": "[format('{0}/{1}', parameters('webAppName'), 'AppSubnet')]",
       "properties": {
         "vnetResourceId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AppSubnet')]",
         "isSwift": true
@@ -393,7 +418,7 @@
     {
       "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
       "apiVersion": "2024-11-15",
-      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('webAppName'), 'cosmos-data-contributor'))]",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), '3986b4f7-1593-44f6-a3d4-529fd505c315')]",
       "properties": {
         "roleDefinitionId": "[format('{0}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')))]",
         "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName')), '2024-11-01', 'full').identity.principalId]",
@@ -436,7 +461,8 @@
       "name": "capstone-appgw-pip",
       "location": "[parameters('location')]",
       "sku": {
-        "name": "Standard"
+        "name": "Standard",
+        "tier": "Regional"
       },
       "properties": {
         "publicIPAllocationMethod": "Static",
@@ -461,7 +487,7 @@
         },
         "gatewayIPConfigurations": [
           {
-            "name": "appGatewayIpConfig",
+            "name": "appGatewayFrontendIP",
             "properties": {
               "subnet": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), 'AppGatewaySubnet')]"
@@ -509,6 +535,7 @@
               "timeout": 30,
               "unhealthyThreshold": 3,
               "host": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName')), '2024-11-01').defaultHostName]",
+              "pickHostNameFromBackendHttpSettings": false,
               "match": {
                 "statusCodes": [
                   "200-399"
@@ -525,6 +552,13 @@
               "protocol": "Https",
               "requestTimeout": 30,
               "pickHostNameFromBackendAddress": true,
+              "dedicatedBackendConnection": false,
+              "connectionDraining": {
+                "enabled": false,
+                "drainTimeoutInSec": 1
+              },
+              "validateCertChainAndExpiry": true,
+              "validateSNI": true,
               "probe": {
                 "id": "[resourceId('Microsoft.Network/applicationGateways/probes', parameters('applicationGatewayName'), 'capstone-backend-health')]"
               }
